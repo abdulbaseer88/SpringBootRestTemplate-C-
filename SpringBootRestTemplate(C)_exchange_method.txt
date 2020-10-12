@@ -1,0 +1,441 @@
+
+RestTemplate(C)
+*)exchange method:- It supports making call to any HttpMethod(GET/POST/PUT/DELETE..etc.)
+exchange(
+      String url, 
+      HttpMethod method,
+      HttpEntity<?> requestEntity, 
+      Class<T> responseType, 
+      Object... pathVariables)
+  : ResponseEntity<T>
+
+=> url : Provider application URL (RestController path/Method Path)
+=> HttpMethod is a enum.
+=> HttpEntity = Request Body + HttpHeaders  (it can be null also)
+=> responseType(T) if we provide same type ResponseEntity<T> is given
+=> Object-var/args used fr sending pathVariables
+
+=============================code=================================
+1. Provider Application
+
+--RestController--
+package in.nareshit.raghu.rest;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import in.nareshit.raghu.model.Employee;
+
+@RestController
+@RequestMapping("/emp")
+public class EmployeeRestController {
+	
+	private Logger log = LoggerFactory.getLogger(EmployeeRestController.class);
+
+	@GetMapping("/msg/{id}/{code}")
+	public ResponseEntity<String> showMsg(
+			@PathVariable Integer id,
+			@PathVariable String code
+			) 
+	{
+		log.info("FROM REST CONTROLLER-GET");
+		return new ResponseEntity<String>("Hello:"+id+","+code,HttpStatus.OK);
+	}
+	
+	@PostMapping("/save")
+	public ResponseEntity<String> saveEmp(
+			@RequestBody Employee employee) {
+		log.info("FROM REST CONTROLLER-POST");
+		return new ResponseEntity<String>(
+				employee.toString(),HttpStatus.OK);
+	}
+	
+	
+	
+}
+
+----2. consumer application------------
+a) GET Runner class
+package in.nareshit.raghu.runner;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.boot.CommandLineRunner;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Component;
+import org.springframework.web.client.RestTemplate;
+
+@Component
+public class ConsumerTestExchnageGetRunner implements CommandLineRunner {
+	
+	private Logger log = LoggerFactory.getLogger(ConsumerTestExchnageGetRunner.class);
+
+	@Override
+	public void run(String... args) throws Exception {
+
+		//1. Define URL
+		String url = "http://localhost:9900/emp/msg/{id}/{code}";
+		
+		//2. RestTemplate object
+		RestTemplate rt = new RestTemplate();
+		
+		//3. Make Request call and get ResposeEntity
+		// URL, MethodType, Request(body+header), ResponseType, pathVariables
+		ResponseEntity<String> response = rt.exchange(url, HttpMethod.GET, null, String.class,110,"ABC");
+		
+		//4. print response details
+		log.info("Response Body {}", response.getBody());
+		log.info("Status Value {}", response.getStatusCodeValue());
+		log.info("Status Code {}", response.getStatusCode().name());
+		
+		//Stop Server
+		System.exit(0);
+	}
+
+}
+b) Post Runner class
+package in.nareshit.raghu.runner;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.boot.CommandLineRunner;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Component;
+import org.springframework.web.client.RestTemplate;
+
+@Component
+public class ConsumerTestExchnagePostRunner implements CommandLineRunner {
+
+	private Logger log = LoggerFactory.getLogger(ConsumerTestExchnagePostRunner.class);
+	
+	@Override
+	public void run(String... args) throws Exception {
+		//1. String URL
+		String url = "http://localhost:9900/emp/save";
+
+		// Request Body
+		String body ="{\"id\":5000}";
+
+		// Http Header Params
+		HttpHeaders headers = new HttpHeaders();
+		headers.setContentType(MediaType.APPLICATION_JSON);
+
+		// Request entity = body + headers
+		HttpEntity<String> requestEntity = new HttpEntity<String>(body, headers);
+
+		//2. RestTemplate object
+		RestTemplate rt = new RestTemplate();
+
+		//3. make POST call and get ResponseEntity<T>
+		// URL, MethodType, request, responseType
+		ResponseEntity<String>  response = rt.exchange(url, HttpMethod.POST, requestEntity, String.class);
+
+		//4. print response details
+		log.info("Response Body {}", response.getBody());
+		log.info("Status Value {}", response.getStatusCodeValue());
+		log.info("Status Code {}", response.getStatusCode().name());
+
+		//Stop Server
+		System.exit(0);
+	}
+
+}
+==================================================================================
+Working with ReturnTypes:
+ if any RestController return type is non-String type ie class or collection type
+ then Data is converted into JSON format and given to Consumer Application
+ that reads data as String type(JSON is a String).
+
+
+--1. Provider Application--
+package in.nareshit.raghu.rest;
+
+import java.util.Arrays;
+import java.util.List;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import in.nareshit.raghu.model.Employee;
+
+@RestController
+@RequestMapping("/emp")
+public class EmployeeRestController {
+
+	private Logger log = LoggerFactory.getLogger(EmployeeRestController.class);
+
+
+	@GetMapping("/find/{id}")
+	public ResponseEntity<Employee> getOneEmployee(@PathVariable Integer id)
+	{
+		return ResponseEntity.ok(new Employee(id, "TEST", 555.0));
+	}
+
+
+}
+
+--2. Consumer code---
+package in.nareshit.raghu.runner;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.boot.CommandLineRunner;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Component;
+import org.springframework.web.client.RestTemplate;
+
+@Component
+public class ConsumerTestRunner implements CommandLineRunner {
+	
+	private Logger log = LoggerFactory.getLogger(ConsumerTestRunner2.class);
+
+
+	@Override
+	public void run(String... args) throws Exception {
+		//1. Define Provider Application URL
+		String url = "http://localhost:9900/emp/find/{id}";
+		
+	
+		//2. Create RestTemplate object
+		RestTemplate rt = new RestTemplate();
+		
+	    /** Here Response is JSON DATA. So, responseType is String.class*/
+
+		//3. make HTTP call and store Response (URL,ResponseType,pathVariables)
+		//ResponseEntity<String> response =  rt.getForEntity(url, String.class,750);
+		ResponseEntity<String> response =  rt.exchange(url,HttpMethod.GET,null, String.class,750);
+		
+		//4. Print details(body,status..etc)
+		log.info("Body {}",response.getBody());
+		log.info("Status value {}",response.getStatusCodeValue()); 
+		log.info("Status code {}",response.getStatusCode().name());
+		log.info("Headers {}",response.getHeaders());
+		
+		System.exit(0); //stop server
+	}
+}
+===============JACKSON API======================================
+JACKSON API : This API is used to convert Object to JSON and JSON to Object Format.
+
+class: ObjectMapper(C)
+Methods:
+  read...()  => JSON->object
+  write..()  => Object->JSON
+
+--SAMPLE CODE--
+String json = response.getBody();
+// Convert JSON to Object
+try {
+	//JACKSON API
+	ObjectMapper om = new ObjectMapper();
+	// JSON, classType ToConvert
+	Employee emp = om.readValue(json, Employee.class);
+	log.info("Object Format is {}",emp);
+} catch (Exception e) {
+	e.printStackTrace();
+}
+---------------------------------------
+=> JACKSON API comes in-buitl with Spring WEB Dependency
+=> Here ObjectMapper(C) supports methods to convert data from Object<-->JSON
+
+--Consumer code with Conversion--
+package in.nareshit.raghu.runner;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.boot.CommandLineRunner;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Component;
+import org.springframework.web.client.RestTemplate;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import in.nareshit.raghu.model.Employee;
+
+@Component
+public class ConsumerTestRunner2 implements CommandLineRunner {
+	
+	private Logger log = LoggerFactory.getLogger(ConsumerTestRunner2.class);
+
+
+	@Override
+	public void run(String... args) throws Exception {
+		//1. Define Provider Application URL
+		String url = "http://localhost:9900/emp/find/{id}";
+		
+	
+		//2. Create RestTemplate object
+		RestTemplate rt = new RestTemplate();
+		
+		//3. make HTTP call and store Response (URL,ResponseType,pathVariables)
+		//ResponseEntity<String> response =  rt.getForEntity(url, String.class,750);
+		ResponseEntity<String> response =  rt.exchange(url,HttpMethod.GET,null, String.class,750);
+		
+		String json = response.getBody();
+		
+		// Convert JSON to Object
+		try {
+			//JACKSON API
+			ObjectMapper om = new ObjectMapper();
+			// JSON, classType ToConvert
+			Employee emp = om.readValue(json, Employee.class);
+			log.info("Object Format is {}",emp);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		
+		//4. Print details(body,status..etc)
+		log.info("Body {}",json);
+		log.info("Status value {}",response.getStatusCodeValue()); 
+		log.info("Status code {}",response.getStatusCode().name());
+		log.info("Headers {}",response.getHeaders());
+		
+		System.exit(0); //stop server
+	}
+}
+--------------------------------------------------------------------------
+*)Note: While making HTTP call using RestTemplate(C), for any method type,
+  If ResponseType is non-String type, then Spring Boot internally converts
+  JSON data as given type using ObjectMapper logic.
+
+It means:
+ResponseEntity<Employee> response =  rt.getForEntity(url, Employee.class,750);
+
+is equals to :
+
+ResponseEntity<String> response =  rt.getForEntity(url, String.class,750);
+
+String json = response.getBody();
+		
+// Convert JSON to Object
+try {
+	//JACKSON API
+	ObjectMapper om = new ObjectMapper();
+	// JSON, classType ToConvert
+	Employee emp = om.readValue(json, Employee.class);
+	log.info("Object Format is {}",emp);
+} catch (Exception e) {
+	e.printStackTrace();
+}
+
+===================================================================
+*)Note: if the type is List<T> then use T[].class while making HTTP call in consumer
+
+--RestController code--
+package in.nareshit.raghu.rest;
+
+import java.util.Arrays;
+import java.util.List;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import in.nareshit.raghu.model.Employee;
+
+@RestController
+@RequestMapping("/emp")
+public class EmployeeRestController {
+
+	private Logger log = LoggerFactory.getLogger(EmployeeRestController.class);
+
+	@GetMapping("/all")
+	public ResponseEntity<List<Employee>> getAllEmployees(){
+		return ResponseEntity.ok(Arrays.asList(
+				new Employee(10, "T1", 555.0),
+				new Employee(11, "T2", 585.0),
+				new Employee(12, "T3", 550.0)
+				)
+				);
+	}
+
+
+}
+
+--Consumer code------
+package in.nareshit.raghu.runner;
+
+import java.util.Arrays;
+import java.util.List;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.boot.CommandLineRunner;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Component;
+import org.springframework.web.client.RestTemplate;
+
+import in.nareshit.raghu.model.Employee;
+
+@Component
+public class ConsumerTestListTypeRunner implements CommandLineRunner {
+
+	private Logger log = LoggerFactory.getLogger(ConsumerTestRunner2.class);
+
+
+	@Override
+	public void run(String... args) throws Exception {
+		String url = "http://localhost:9900/emp/all";
+		RestTemplate rt = new RestTemplate();
+		
+		//ResponseEntity<Employee[]> response =  rt.getForEntity(url, Employee[].class);
+		ResponseEntity<Employee[]> response =  rt.exchange(url,HttpMethod.GET,null, Employee[].class);
+		/*
+		//ResponseEntity<String> response =  rt.getForEntity(url, String.class);
+		//ResponseEntity<String> response =  rt.exchange(url,HttpMethod.GET,null, String.class);
+		String json = response.getBody();
+		try {
+			ObjectMapper om = new ObjectMapper();
+			// Supports only array type conversion
+			Employee[] emps = om.readValue(json, Employee[].class); //List<Employee>.class not allowed.So,
+			List<Employee> list = Arrays.asList(emps); //List.of(emps)
+			log.info("Body {}",list);
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		*/
+		Employee[] emps = response.getBody();
+		List<Employee> list = Arrays.asList(emps);
+		
+		log.info("Body {}",list);
+		log.info("Status value {}",response.getStatusCodeValue()); 
+		log.info("Status code {}",response.getStatusCode().name());
+		log.info("Headers {}",response.getHeaders());
+
+		System.exit(0); //stop server
+	}
+
+}

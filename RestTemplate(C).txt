@@ -1,0 +1,306 @@
+
+	    Spring Boot Client : RestTemplate (C)
+
+=> RestTemplate(C) it is a pre-defined class given by Spring Boot ReST.
+=> This is used to make HTTP calls to Provider application.
+=> *** RestTemplate(C) is not auto-configured by Spring boot.
+  This class object is not created by Spring boot configuration.
+--Programmer configuration---
+@Configuration
+public class AppConfig {
+ @Bean
+ public RestTemplate rt(){
+   return new RestTemplate();
+ }
+}
+=> It support Making HTTP calls with all method types GET/POST/PUT/DELETE..etc
+=> JSON/XML Auto-conversion also supported. (JSON/XML<--> Object)
+
+=> RestTemplate is used to define Consumer applications.
+   It needs inputs like Provider Endpoint Details
+   IP, PORT, Paths, Method Types, Input and Output Details.
+
+
+==========================code====================================
+1. Provider
+Name : SpringBootProviderApp
+Dep  : Spring web, Lombok, DevTools
+
+*)application.properties
+server.port=9900
+
+*) RestController
+package in.nareshit.raghu.rest;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+@RequestMapping("/emp")
+public class EmployeeRestController {
+	
+	private Logger log = LoggerFactory.getLogger(EmployeeRestController.class);
+
+	@GetMapping("/msg")
+	public ResponseEntity<String> showMsg() {
+		log.info("FROM REST CONTROLLER");
+		return new ResponseEntity<String>("Hello",HttpStatus.OK);
+	}
+}
+
+2) Consumer Application
+Name : SpringBootConsumerApp
+Dep  : Spring web, Lombok
+
+*) Consumer Runner class
+package in.nareshit.raghu.runner;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.boot.CommandLineRunner;
+import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Component;
+import org.springframework.web.client.RestTemplate;
+
+@Component
+public class ConsumerTestRunner implements CommandLineRunner {
+	
+	private Logger log = LoggerFactory.getLogger(ConsumerTestRunner.class);
+
+
+	@Override
+	public void run(String... args) throws Exception {
+		//1. Define Provider Application URL
+		String url = "http://localhost:9900/emp/msg";
+		
+		//2. Create RestTemplate object
+		RestTemplate rt = new RestTemplate();
+		
+		//3. make HTTP call and store Response (URL,ResponseType)
+		ResponseEntity<String> response =  rt.getForEntity(url, String.class);
+		
+		//4. Print details(body,status..etc)
+		log.info("Body {}",response.getBody());
+		log.info("Status value {}",response.getStatusCodeValue()); 
+		log.info("Status code {}",response.getStatusCode().name());
+		
+		System.exit(0); //stop server
+	}
+}
+
+*)application.properties
+server.port=8686
+====================================================================================
+*)Note:
+Webservices link two application
+
+     consumer-------provider
+RestTemplate        @RestController 
+ (class)            (annotation)
+Ex:   BookMyShow      Paytm
+
+ -------------------------POST Request using RestTemplate-----------------------------
+1. Prepare Request Body (JSON) as a String type
+
+String body = "{\"id\":10,\"name\":\"A\",\"sal\":3.3}";
+		
+2. Specify Header Parameter for Content-Type
+
+HttpHeaders headers = new HttpHeaders();
+headers.setContentType(MediaType.APPLICATION_JSON);
+		
+3. Create Request object using Body+Header(HttpEntity)
+
+HttpEntity<String> request = new HttpEntity<String>(body, headers);
+
+4. Make Request using postForEntity method with 3 params
+    URL, request(HttpEntity), responseType
+
+RestTemplate rt = new RestTemplate();
+ResponseEntity<String> response =  rt.postForEntity(url, request, String.class);
+		
+----------code------------------------------
+1. Provider application
+package in.nareshit.raghu.rest;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import in.nareshit.raghu.model.Employee;
+
+@RestController
+@RequestMapping("/emp")
+public class EmployeeRestController {
+	
+	private Logger log = LoggerFactory.getLogger(EmployeeRestController.class);
+
+	
+	@PostMapping("/save")
+	public ResponseEntity<String> saveEmp(
+			@RequestBody Employee employee) {
+		log.info("FROM REST CONTROLLER-POST");
+		return new ResponseEntity<String>(
+				employee.toString(),HttpStatus.OK);
+	}
+	
+	
+	
+}
+
+2. Consumer Application
+package in.nareshit.raghu.runner;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.boot.CommandLineRunner;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Component;
+import org.springframework.web.client.RestTemplate;
+
+@Component
+public class ConsumerTestRunner implements CommandLineRunner {
+	
+	private Logger log = LoggerFactory.getLogger(ConsumerTestRunner.class);
+
+
+	@Override
+	public void run(String... args) throws Exception {
+		//1. Define Provider Application URL
+		String url = "http://localhost:9900/emp/save";
+		
+		// SEND JSON AS BODY
+		String body = "{\"id\":10,\"name\":\"A\",\"sal\":3.3}";
+		
+		// Http Head Section
+		HttpHeaders headers = new HttpHeaders();
+		// Add Header key val
+		headers.setContentType(MediaType.APPLICATION_JSON);
+		
+		// Http Request (body,headers)
+		HttpEntity<String> request = new HttpEntity<String>(body, headers);
+		
+		//2. Create RestTemplate object
+		RestTemplate rt = new RestTemplate();
+		
+		//3. make HTTP call and store Response (URL,ResponseType)
+		ResponseEntity<String> response =  rt.postForEntity(url, request, String.class);
+		
+		//4. Print details(body,status..etc)
+		log.info("Body {}",response.getBody());
+		log.info("Status value {}",response.getStatusCodeValue()); 
+		log.info("Status code {}",response.getStatusCode().name());
+		
+		System.exit(0); //stop server
+	}
+}
+__Note:____________________________________________________________________________________
+getForEntity(url,T.class): ResponseEntity<T>
+getForObject(url,T.class): T  (No Status, No Header params..only Response Body)
+
+postForEntity(url,request,T.class): ResponseEntity<T>
+postForObject(url,request,T.class): T  (No Status, No Header params..only Response Body)
+
+--Note--
+//3. make HTTP call and store Response (URL,ResponseType)
+String response =  rt.postForObject(url, request, String.class);
+		
+//4. Print details(body,status..etc)
+log.info("Body {}",response);
+
+=================================================================
+Passing PathVariables:
+ if we use __ForEntity() or __ForObject() methods last param can be Object...(var-args)
+ those indicates PathVariables. We can pass multiple values based on code in Controller
+
+
+Syntax:
+ getForEntity(url,ResponseType,pathVariables)
+
+
+a) Provider code
+package in.nareshit.raghu.rest;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import in.nareshit.raghu.model.Employee;
+
+@RestController
+@RequestMapping("/emp")
+public class EmployeeRestController {
+	
+	private Logger log = LoggerFactory.getLogger(EmployeeRestController.class);
+
+	@GetMapping("/msg/{id}/{code}")
+	public ResponseEntity<String> showMsg(
+			@PathVariable Integer id,
+			@PathVariable String code
+			) 
+	{
+		log.info("FROM REST CONTROLLER-GET");
+		return new ResponseEntity<String>("Hello:"+id+","+code,HttpStatus.OK);
+	}
+	
+	
+}
+
+b) Consumer code
+package in.nareshit.raghu.runner;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.boot.CommandLineRunner;
+import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Component;
+import org.springframework.web.client.RestTemplate;
+
+@Component
+public class ConsumerTestRunner2 implements CommandLineRunner {
+	
+	private Logger log = LoggerFactory.getLogger(ConsumerTestRunner2.class);
+
+
+	@Override
+	public void run(String... args) throws Exception {
+		//1. Define Provider Application URL
+		//String url = "http://localhost:9900/emp/msg/25";
+		String url = "http://localhost:9900/emp/msg/{id}/{code}";
+		
+	
+		//2. Create RestTemplate object
+		RestTemplate rt = new RestTemplate();
+		
+		//3. make HTTP call and store Response (URL,ResponseType,pathVariables)
+		ResponseEntity<String> response =  rt.getForEntity(url, String.class,750,"SAMPLE");
+		
+		//4. Print details(body,status..etc)
+		log.info("Body {}",response.getBody());
+		log.info("Status value {}",response.getStatusCodeValue()); 
+		log.info("Status code {}",response.getStatusCode().name());
+		
+		System.exit(0); //stop server
+	}
+}

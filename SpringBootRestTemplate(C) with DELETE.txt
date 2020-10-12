@@ -1,0 +1,284 @@
+
+Code Link:
+
+		RestTemplate(C) with DELETE
+
+=> RestTemplate(C) has provided delete() method  to make HTTP DELETE CALL.
+=> Looks like
+   delete(String url, Object... pathVariables):void
+
+=> delete() method returns void , no ResponseEntity<T> is given back.
+=> If executed successfully then no Exception.
+
+---------Code-----------------------------------------
+1. Provider Application
+
+package in.nareshit.raghu.rest;
+@RestController
+@RequestMapping("/emp")
+public class EmployeeRestController {
+
+	private Logger log = LoggerFactory.getLogger(EmployeeRestController.class);
+
+	@DeleteMapping("/remove/{id}")
+	public ResponseEntity<String> removeEmployee(
+			@PathVariable Integer id) 
+	{
+		log.info("FROM REST CONTROLLER-DELETE METHOD ....");
+		return ResponseEntity.ok("Employee removed with id "+id);
+	}
+}
+
+2. Consumer Application
+
+
+
+package in.nareshit.raghu.runner;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.CommandLineRunner;
+import org.springframework.stereotype.Component;
+import org.springframework.web.client.RestTemplate;
+
+@Component
+public class ConsumerDeleteRunner implements CommandLineRunner {
+	@Autowired
+	private RestTemplate rt;
+	
+	@Override
+	public void run(String... args) throws Exception {
+		//1. define URL
+		String url= "http://localhost:9900/emp/remove/{id}";
+		
+		//2. RestTemplate object -autowired
+		
+		//3. make HTTP call and get Response
+		rt.delete(url, 50);
+		
+		//4. ResponseEntity 
+		
+		//5. Stop server
+		System.exit(0);
+		
+	}
+
+}
+------------------
+package in.nareshit.raghu.config;
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.web.client.RestTemplate;
+
+@Configuration
+public class AppConfig {
+
+	@Bean
+	public RestTemplate rt() {
+		return new RestTemplate();
+	}
+}
+===================MAKING DELETE USING exchange() method==============
+*)Consumer code:
+
+package in.nareshit.raghu.runner;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.CommandLineRunner;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Component;
+import org.springframework.web.client.RestTemplate;
+
+@Component
+public class ConsumerDeleteRunner implements CommandLineRunner {
+	@Autowired
+	private RestTemplate rt;
+	
+	private Logger log = LoggerFactory.getLogger(ConsumerDeleteRunner.class);
+	
+	@Override
+	public void run(String... args) throws Exception {
+		//1. define URL
+		String url= "http://localhost:9900/emp/remove/{id}";
+		
+		//2. RestTemplate object -autowired
+		
+		//3. make HTTP call and get Response
+		//rt.delete(url, 50);
+		ResponseEntity<String> response = rt.exchange(url, HttpMethod.DELETE, null, String.class, 250);
+		
+		//4. ResponseEntity 
+		log.info("Response Body {}", response.getBody());
+		log.info("Status Code {}", response.getStatusCode().name());
+		log.info("Status value  {}", response.getStatusCodeValue());
+		log.info("Response Headers  {}", response.getHeaders());
+		
+		//5. Stop server
+		System.exit(0);
+		
+	}
+
+}
+
+Q) What is the difference between delete() and exchange() methods in RestTemplate?
+A) 
+ delete() 
+  this method returns void type.
+  supports only HTTP DELETE call
+
+ exchange() 
+   this method returns ResponseEntity<T>.
+   supports any type of HTTP method call.
+
+===============================================================================
+		RestTemplate(C) with PUT
+
+=> RestTemplate(C) has provided method put(url,requestEntity,pathVariables)
+=> This method returns void type. We can not get ResponseEntity<T> from
+   at consumer application.
+
+
+---code------------------------------
+1. Provider application
+
+package in.nareshit.raghu.rest;
+
+import java.util.Arrays;
+import java.util.List;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import in.nareshit.raghu.model.Employee;
+
+@RestController
+@RequestMapping("/emp")
+public class EmployeeRestController {
+
+	private Logger log = LoggerFactory.getLogger(EmployeeRestController.class);
+
+	@PutMapping("/modify/{id}")
+	public ResponseEntity<String> updateEmployee(
+			@PathVariable Integer id,
+			@RequestBody Employee employee
+			) 
+	{
+		log.info("FROM REST CONTROLLER-PUT METHOD ....");
+		employee.setId(id);
+		return ResponseEntity.ok(employee.toString());
+	}
+	
+}
+
+2. Consumer application usinf put() method
+package in.nareshit.raghu.runner;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.CommandLineRunner;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.stereotype.Component;
+import org.springframework.web.client.RestTemplate;
+
+@Component
+public class ConsumerPutRunner implements CommandLineRunner {
+	@Autowired
+	private RestTemplate rt;
+	
+	@Override
+	public void run(String... args) throws Exception {
+		// provide URL
+		String url = "http://localhost:9900/emp/modify/{id}";
+		
+		// Request Body
+		String body = "{\"name\":\"A\",\"sal\":888}";
+		
+		// Request Header
+		HttpHeaders headers = new HttpHeaders();
+		headers.setContentType(MediaType.APPLICATION_JSON);
+		
+		// request creation = Body + head
+		HttpEntity<String> request = new HttpEntity<String>(body, headers);
+		
+		//execute (url, request, pathVariables) --> void
+		rt.put(url, request, 88);
+		
+		//stop server
+		System.exit(0);
+		
+	}
+
+}
+======consumer code using exchange() method==================
+package in.nareshit.raghu.runner;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.CommandLineRunner;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Component;
+import org.springframework.web.client.RestTemplate;
+
+@Component
+public class ConsumerPutRunner implements CommandLineRunner {
+	@Autowired
+	private RestTemplate rt;
+
+	private Logger log = LoggerFactory.getLogger(ConsumerPutRunner.class);
+
+
+	@Override
+	public void run(String... args) throws Exception {
+		// provide URL
+		String url = "http://localhost:9900/emp/modify/{id}";
+
+		// Request Body
+		String body = "{\"name\":\"A\",\"sal\":888}";
+
+		// Request Header
+		HttpHeaders headers = new HttpHeaders();
+		headers.setContentType(MediaType.APPLICATION_JSON);
+
+		// request creation = Body + head
+		HttpEntity<String> requestEntity = new HttpEntity<String>(body, headers);
+
+		//put (url, request, pathVariables) --> void
+		//rt.put(url, request, 88);
+
+		// exchange(url,methodType,request, responseType, pathVariables)
+		ResponseEntity<String> response = rt.exchange(url, HttpMethod.PUT, requestEntity, String.class, 50);
+
+		//print details
+		log.info("Response Body {}", response.getBody());
+		log.info("Status Code {}", response.getStatusCode().name());
+		log.info("Status value  {}", response.getStatusCodeValue());
+		log.info("Response Headers  {}", response.getHeaders());
+
+
+		//stop server
+		System.exit(0);
+
+	}
+
+}
+=================TASK====================================
+Q) How can we call patch Http method using RestTemplate?
